@@ -511,7 +511,7 @@
 
       // Map date columns
       const dateCols = {}; // colIdx -> '11/2'
-      let phoneColIdx = header.findIndex(c => c.includes('전화번호'));
+      let phoneColIdx = header.findIndex(c => /전화|연락처|휴대폰|phone/i.test(c));
       if (phoneColIdx === -1) phoneColIdx = 3; // Default col 3
 
       for (let c = 0; c < header.length; c++) {
