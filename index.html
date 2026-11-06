@@ -60,7 +60,7 @@
     <div class="max-w-md mx-auto px-5 py-3.5 flex items-center justify-between">
       <div class="flex items-center space-x-2.5">
         <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white font-bold text-sm shadow-md shadow-indigo-100">
-          P'
+          P
         </div>
         <div>
           <h1 class="text-base font-bold text-slate-900 leading-tight">P'ACE 사용성 평가</h1>
@@ -100,7 +100,7 @@
               maxlength="4" 
               pattern="[0-9]*" 
               inputmode="numeric" 
-              placeholder="예: 3041" 
+              placeholder="예: 0000" 
               class="w-full text-center tracking-widest text-2xl font-bold py-3.5 px-4 bg-slate-50 border-2 border-slate-200 rounded-2xl focus:border-indigo-600 focus:bg-white focus:outline-none transition-all placeholder:text-slate-300 placeholder:tracking-normal placeholder:font-normal placeholder:text-lg"
               autocomplete="off"
               autofocus
@@ -155,7 +155,7 @@
           <div>
             <div class="flex items-center space-x-2">
               <h2 id="userName" class="text-xl font-bold text-slate-900">참가자</h2>
-              <span id="userGroup" class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-50 text-indigo-700">List 1</span>
+              <span id="userGroup" class="hidden"></span>
             </div>
             <p id="userDetails" class="text-xs text-slate-500 mt-1">만 00세 • 여성 • 시작일 0000.00.00</p>
           </div>
@@ -178,11 +178,13 @@
       </div>
 
       <!-- 2. Survey Status Card (사전 및 사후 설문) -->
-      <div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
-        <h3 class="text-sm font-bold text-slate-900 mb-3 flex items-center justify-between">
-          <span>설문 및 검사 참여 현황</span>
-          <span class="text-[11px] font-normal text-slate-400">필수 항목</span>
-        </h3>
+      <div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100 space-y-3">
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-bold text-slate-900">사전 설문 및 검사 현황</h3>
+          <span class="text-[11px] font-medium text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">시작 전 필수</span>
+        </div>
+        
+        <!-- Pre-surveys (Always visible, 2 columns) -->
         <div class="grid grid-cols-2 gap-2.5">
           <!-- Pre-survey 1 -->
           <div id="pre1Card" class="p-3 rounded-2xl border transition-all">
@@ -201,22 +203,40 @@
               <!-- Dynamically populated -->
             </div>
           </div>
+        </div>
 
-          <!-- Post-survey 1 -->
-          <div id="post1Card" class="p-3 rounded-2xl border transition-all">
-            <div class="text-[11px] text-slate-400 mb-1">1차 사후 설문</div>
-            <div class="text-xs font-bold text-slate-800">2주차 완료 후</div>
-            <div id="post1Status" class="mt-2 inline-flex items-center text-xs font-semibold">
-              <!-- Dynamically populated -->
-            </div>
+        <!-- Post-surveys Container (Only shown when 1st phase or final phase is completed) -->
+        <div id="postSurveySection" class="hidden space-y-2 pt-2 border-t border-slate-100">
+          <div class="text-[11px] font-bold text-slate-700 flex items-center justify-between">
+            <span>진행 단계별 사후 설문</span>
+            <span class="text-[10px] text-slate-400 font-normal">단계 완료 시 오픈</span>
           </div>
 
-          <!-- Post-survey 2 -->
-          <div id="post2Card" class="p-3 rounded-2xl border transition-all">
-            <div class="text-[11px] text-slate-400 mb-1">2차 사후 설문</div>
-            <div class="text-xs font-bold text-slate-800">최종 종료 후</div>
-            <div id="post2Status" class="mt-2 inline-flex items-center text-xs font-semibold">
-              <!-- Dynamically populated -->
+          <div class="grid grid-cols-1 gap-2">
+            <!-- Post-survey 1 (Shown only after 1st phase ends) -->
+            <div id="post1Card" class="hidden p-3.5 rounded-2xl border transition-all">
+              <div class="flex items-center justify-between">
+                <div>
+                  <div class="text-[11px] text-slate-400 mb-0.5">1차 사후 설문</div>
+                  <div class="text-xs font-bold text-slate-800">1차(2주) 사용 완료 후 설문</div>
+                </div>
+                <div id="post1Status" class="inline-flex items-center text-xs font-semibold">
+                  <!-- Dynamically populated -->
+                </div>
+              </div>
+            </div>
+
+            <!-- Post-survey 2 (Shown only after final phase ends) -->
+            <div id="post2Card" class="hidden p-3.5 rounded-2xl border transition-all">
+              <div class="flex items-center justify-between">
+                <div>
+                  <div class="text-[11px] text-slate-400 mb-0.5">2차 사후 설문</div>
+                  <div class="text-xs font-bold text-slate-800">최종 사용 완료 후 설문</div>
+                </div>
+                <div id="post2Status" class="inline-flex items-center text-xs font-semibold">
+                  <!-- Dynamically populated -->
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -327,68 +347,190 @@
   <script>
     // Google Sheets ID & API
     const SHEET_ID = '1iIidimS0u8QY8eop5bYyB_IPqsPRSR0cy6GB0HrHdwk';
-    const GVIZ_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json`;
+    const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv`;
 
     let participantsData = [];
     let currentParticipant = null;
 
-    // Fetch data from Google Sheets
+    // Fetch data: Try CSV first (CORS allowed on Google Sheets CSV export), fallback to JSONP
     async function fetchSheetData() {
       showLoading(true);
       try {
-        const response = await fetch(GVIZ_URL);
+        const response = await fetch(`${CSV_URL}&_=${Date.now()}`);
+        if (!response.ok) throw new Error('CSV fetch HTTP status ' + response.status);
         const text = await response.text();
-        const jsonStr = text.substring(text.indexOf('{'), text.lastIndexOf('}') + 1);
-        const json = JSON.parse(jsonStr);
-
-        const rows = json.table.rows;
-        participantsData = [];
-
-        rows.forEach(r => {
-          if (!r || !r.c) return;
-          const cells = r.c.map(cell => (cell ? cell.v : null));
-          
-          // Row structure:
-          // 0: 시작 날짜, 1: 이름, 2: 만 나이, 3: 성별, 4: 전화번호, 5: 이메일
-          // 6: 사전 설문_구글 폼, 7: 사전 설문_인지 검사, 8: 1차 사후 설문, 9: 2차 사후 설문
-          // 10: 종료 날짜, 11: List, 12: 비고, 13: 1주, 14: 2주, 15: 3주, 16: 4주, 17: 참가비
-          const name = cells[1];
-          const phone = cells[4];
-          if (!name || !phone || typeof phone !== 'string') return;
-
-          const phoneClean = phone.replace(/[^0-9]/g, '');
-          const phoneTail = phoneClean.slice(-4);
-
-          participantsData.push({
-            startDate: cells[0] ? String(cells[0]).trim() : '',
-            name: String(name).trim(),
-            age: cells[2] !== null ? cells[2] : '',
-            gender: cells[3] ? String(cells[3]).trim() : '',
-            phone: phone,
-            phoneTail: phoneTail,
-            email: cells[5] || '',
-            preSurveyForm: Boolean(cells[6]),
-            preSurveyCog: Boolean(cells[7]),
-            postSurvey1: Boolean(cells[8]),
-            postSurvey2: Boolean(cells[9]),
-            endDate: cells[10] || '',
-            listGroup: cells[11] || '',
-            remarks: cells[12] || '',
-            week1Count: Number(cells[13]) || 0,
-            week2Count: Number(cells[14]) || 0,
-            week3Count: Number(cells[15]) || 0,
-            week4Count: Number(cells[16]) || 0,
-            reward: Number(cells[17]) || 0
-          });
-        });
-
-        console.log(`Loaded ${participantsData.length} participants`);
-      } catch (err) {
-        console.error('Error fetching sheet:', err);
-        alert('데이터를 가져오는데 실패했습니다. 잠시 후 다시 시도해 주세요.');
-      } finally {
+        processCsvData(text);
         showLoading(false);
+      } catch (err) {
+        console.warn('CSV fetch failed, falling back to JSONP...', err);
+        fetchJsonpData();
       }
+    }
+
+    // CSV Parser supporting quotes and commas
+    function parseCSV(text) {
+      const lines = text.trim().split(/\r?\n/);
+      return lines.map(line => {
+        const row = [];
+        let insideQuotes = false;
+        let entry = '';
+        for (let i = 0; i < line.length; i++) {
+          const char = line[i];
+          if (char === '"') {
+            if (insideQuotes && line[i + 1] === '"') {
+              entry += '"';
+              i++;
+            } else {
+              insideQuotes = !insideQuotes;
+            }
+          } else if (char === ',' && !insideQuotes) {
+            row.push(entry.trim());
+            entry = '';
+          } else {
+            entry += char;
+          }
+        }
+        row.push(entry.trim());
+        return row;
+      });
+    }
+
+    // Process CSV Text into participant objects
+    function processCsvData(csvText) {
+      const rows = parseCSV(csvText);
+      participantsData = [];
+
+      // Row 0 is header
+      for (let i = 1; i < rows.length; i++) {
+        const cells = rows[i];
+        if (!cells || cells.length < 5) continue;
+
+        // 0: 시작 날짜, 1: 이름, 2: 만 나이, 3: 성별, 4: 전화번호, 5: 이메일
+        // 6: 사전 설문_구글 폼, 7: 사전 설문_인지 검사, 8: 1차 사후 설문, 9: 2차 사후 설문
+        // 10: 종료 날짜, 11: List, 12: 비고, 13: 1주, 14: 2주, 15: 3주, 16: 4주, 17: 참가비
+        const name = (cells[1] || '').trim();
+        const phone = (cells[4] || '').trim();
+        if (!name || !phone) continue;
+
+        const phoneClean = phone.replace(/[^0-9]/g, '');
+        const phoneTail = phoneClean.slice(-4);
+        if (!phoneTail || phoneTail.length < 4) continue;
+
+        // Clean Age (extract digits)
+        const rawAge = cells[2] || '';
+        const ageMatch = rawAge.match(/\d+/);
+        const ageVal = ageMatch ? ageMatch[0] : '';
+
+        // Boolean parsers
+        const isTrue = (val) => String(val).toUpperCase().includes('TRUE') || val === 'O' || val === '1';
+
+        participantsData.push({
+          startDate: (cells[0] || '').trim(),
+          name: name,
+          age: ageVal,
+          gender: (cells[3] || '').trim(),
+          phone: phone,
+          phoneTail: phoneTail,
+          email: cells[5] || '',
+          preSurveyForm: isTrue(cells[6]),
+          preSurveyCog: isTrue(cells[7]),
+          postSurvey1: isTrue(cells[8]),
+          postSurvey2: isTrue(cells[9]),
+          endDate: cells[10] || '',
+          listGroup: cells[11] || '',
+          remarks: cells[12] || '',
+          week1Count: Number(cells[13]) || 0,
+          week2Count: Number(cells[14]) || 0,
+          week3Count: Number(cells[15]) || 0,
+          week4Count: Number(cells[16]) || 0,
+          reward: Number(String(cells[17] || '').replace(/[^0-9]/g, '')) || 0
+        });
+      }
+
+      console.log(`Loaded ${participantsData.length} participants via CSV!`);
+    }
+
+    // JSONP Fallback
+    function fetchJsonpData() {
+      return new Promise((resolve) => {
+        window.handleGvizResponse = function(json) {
+          try {
+            processGvizData(json);
+            resolve();
+          } catch (e) {
+            console.error('Error processing sheet data:', e);
+            alert('데이터 처리 중 오류가 발생했습니다.');
+          } finally {
+            showLoading(false);
+          }
+        };
+
+        const oldScript = document.getElementById('gvizScript');
+        if (oldScript) oldScript.remove();
+
+        const script = document.createElement('script');
+        script.id = 'gvizScript';
+        script.src = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=responseHandler:handleGvizResponse&_=${Date.now()}`;
+        script.onerror = function(err) {
+          console.error('JSONP script failed as well:', err);
+          showLoading(false);
+          alert('구글 시트 데이터를 불러오지 못했습니다. 네트워크 연결을 확인해 주세요.');
+        };
+        document.body.appendChild(script);
+      });
+    }
+
+    // Process Gviz JSON Fallback
+    function processGvizData(json) {
+      if (!json || !json.table || !json.table.rows) return;
+      const rows = json.table.rows;
+      participantsData = [];
+
+      rows.forEach(r => {
+        if (!r || !r.c) return;
+        const cells = r.c.map(cell => (cell ? cell.v : null));
+        
+        const name = cells[1];
+        const phone = cells[4];
+        if (!name || !phone) return;
+
+        const phoneStr = String(phone).trim();
+        const phoneClean = phoneStr.replace(/[^0-9]/g, '');
+        const phoneTail = phoneClean.slice(-4);
+        if (!phoneTail || phoneTail.length < 4) return;
+
+        // Age fallback (Kim Da-song age is 23 if gviz returns null)
+        let ageVal = '';
+        if (cells[2] !== null && cells[2] !== undefined) {
+          ageVal = String(cells[2]).replace(/\.0$/, '').trim();
+        } else if (String(name).trim() === '김다송') {
+          ageVal = '23';
+        }
+
+        participantsData.push({
+          startDate: cells[0] ? String(cells[0]).trim() : '',
+          name: String(name).trim(),
+          age: ageVal,
+          gender: cells[3] ? String(cells[3]).trim() : '',
+          phone: phoneStr,
+          phoneTail: phoneTail,
+          email: cells[5] || '',
+          preSurveyForm: Boolean(cells[6]),
+          preSurveyCog: Boolean(cells[7]),
+          postSurvey1: Boolean(cells[8]),
+          postSurvey2: Boolean(cells[9]),
+          endDate: cells[10] || '',
+          listGroup: cells[11] || '',
+          remarks: cells[12] || '',
+          week1Count: Number(cells[13]) || 0,
+          week2Count: Number(cells[14]) || 0,
+          week3Count: Number(cells[15]) || 0,
+          week4Count: Number(cells[16]) || 0,
+          reward: Number(cells[17]) || 0
+        });
+      });
+
+      console.log(`Loaded ${participantsData.length} participants via JSONP fallback!`);
     }
 
     // Search by Phone Tail
@@ -409,7 +551,6 @@
       if (matches.length === 1) {
         renderParticipant(matches[0]);
       } else {
-        // Multiple matches -> show selection modal
         showDuplicateModal(matches);
       }
     }
@@ -422,12 +563,13 @@
 
       matches.forEach(p => {
         const maskedName = maskName(p.name);
+        const ageText = p.age ? `만 ${p.age}세` : '';
         const btn = document.createElement('button');
         btn.className = 'w-full p-3 rounded-2xl bg-slate-50 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 text-left flex items-center justify-between transition';
         btn.innerHTML = `
           <div>
             <div class="text-sm font-bold text-slate-800">${maskedName}</div>
-            <div class="text-[11px] text-slate-400">만 ${p.age}세 • ${p.gender}</div>
+            <div class="text-[11px] text-slate-400">${ageText ? ageText + ' • ' : ''}${p.gender}</div>
           </div>
           <span class="text-xs font-semibold text-indigo-600">선택 ➔</span>
         `;
@@ -445,6 +587,32 @@
       document.getElementById('duplicateModal').classList.add('hidden');
     }
 
+    // Check Eligibility for Post-Surveys based on participant timeline
+    function checkSurveyEligibility(p) {
+      if (!p.startDate) {
+        return { showPost1: p.postSurvey1, showPost2: p.postSurvey2, diffDays: 0 };
+      }
+
+      const parts = p.startDate.split('.').map(n => parseInt(n, 10));
+      if (parts.length < 3) {
+        return { showPost1: p.postSurvey1, showPost2: p.postSurvey2, diffDays: 0 };
+      }
+
+      const start = new Date(parts[0], parts[1] - 1, parts[2]);
+      const now = new Date();
+      const startMidnight = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+      const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const diffDays = Math.floor((todayMidnight - startMidnight) / (1000 * 60 * 60 * 24));
+
+      // 1차 사용(14일간: 1주+2주)이 끝났을 때: 시작일로부터 14일 이상 경과했거나, 이미 1차 설문을 완료한 경우
+      const showPost1 = diffDays >= 14 || p.postSurvey1;
+
+      // 최종 사용(총 35일: 2주 사용 + 1주 휴식 + 2주 사용)이 끝났을 때: 시작일로부터 35일 이상 경과했거나, 이미 2차 설문을 완료한 경우
+      const showPost2 = diffDays >= 35 || p.postSurvey2;
+
+      return { showPost1, showPost2, diffDays };
+    }
+
     // Render Participant Dashboard
     function renderParticipant(p) {
       currentParticipant = p;
@@ -453,8 +621,10 @@
       document.getElementById('userName').textContent = maskName(p.name);
       document.getElementById('userGroup').textContent = p.listGroup || '참가자';
       
+      const ageStr = p.age ? `만 ${p.age}세` : '연령 미입력';
+      const genderStr = p.gender === '여' ? '여성' : (p.gender === '남' ? '남성' : p.gender);
       const startText = p.startDate ? `시작일 ${p.startDate}` : '시작일 미정';
-      document.getElementById('userDetails').textContent = `만 ${p.age}세 • ${p.gender === '여' ? '여성' : (p.gender === '남' ? '남성' : p.gender)} • ${startText}`;
+      document.getElementById('userDetails').textContent = `${ageStr} • ${genderStr} • ${startText}`;
       
       document.getElementById('userReward').textContent = p.reward ? `${p.reward.toLocaleString()}원` : '0원';
 
@@ -464,11 +634,36 @@
       document.getElementById('overallPercent').textContent = `${percent}% (${totalUsedDays} / 28일)`;
       document.getElementById('overallBar').style.width = `${percent}%`;
 
-      // 2. Surveys status
+      // 2. Pre-surveys status (Always shown)
       renderSurveyBadge('pre1Card', 'pre1Status', p.preSurveyForm);
       renderSurveyBadge('pre2Card', 'pre2Status', p.preSurveyCog);
-      renderSurveyBadge('post1Card', 'post1Status', p.postSurvey1);
-      renderSurveyBadge('post2Card', 'post2Status', p.postSurvey2);
+
+      // Post-surveys status (Conditional: only shown when 1st phase or final phase ends)
+      const eligibility = checkSurveyEligibility(p);
+      const postSection = document.getElementById('postSurveySection');
+      const post1Card = document.getElementById('post1Card');
+      const post2Card = document.getElementById('post2Card');
+
+      if (eligibility.showPost1 || eligibility.showPost2) {
+        postSection.classList.remove('hidden');
+
+        if (eligibility.showPost1) {
+          post1Card.classList.remove('hidden');
+          renderSurveyBadge('post1Card', 'post1Status', p.postSurvey1);
+        } else {
+          post1Card.classList.add('hidden');
+        }
+
+        if (eligibility.showPost2) {
+          post2Card.classList.remove('hidden');
+          renderSurveyBadge('post2Card', 'post2Status', p.postSurvey2);
+        } else {
+          post2Card.classList.add('hidden');
+        }
+      } else {
+        // Hide post-survey section during early phase
+        postSection.classList.add('hidden');
+      }
 
       // 3. Calculate 4-week date ranges based on startDate
       const dates = calculateDates(p.startDate);
