@@ -246,7 +246,12 @@
       <div class="space-y-3">
         <div class="flex items-center justify-between px-1">
           <h3 class="text-sm font-bold text-slate-900">주차별 앱 사용 기록</h3>
-          <span class="text-xs text-slate-400">목표: 주 7일 매일 사용</span>
+          <!-- Legend -->
+          <div class="flex items-center space-x-2 text-[10px] text-slate-500 font-medium">
+            <span class="inline-flex items-center"><span class="w-3.5 h-3.5 rounded-md bg-indigo-600 text-white flex items-center justify-center text-[9px] mr-1">✓</span>참여</span>
+            <span class="inline-flex items-center"><span class="w-3.5 h-3.5 rounded-md bg-rose-50 border border-rose-200 text-rose-500 flex items-center justify-center text-[9px] mr-1 font-bold">✕</span>미참여</span>
+            <span class="inline-flex items-center"><span class="w-3.5 h-3.5 rounded-md bg-slate-100 text-slate-400 flex items-center justify-center text-[9px] mr-1">-</span>예정</span>
+          </div>
         </div>
 
         <!-- Part 1: First 2 Weeks -->
@@ -345,31 +350,51 @@
   </footer>
 
   <script>
-    // Google Sheets ID & API
+    // Google Sheets ID & Sheet GIDs
     const SHEET_ID = '1iIidimS0u8QY8eop5bYyB_IPqsPRSR0cy6GB0HrHdwk';
-    const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv`;
+    const GID_MAIN = '0';          // 종합 현황
+    const GID_WEEK1 = '944633780';  // 1주차 일별 사용 현황
+    const GID_WEEK2 = '1719870122'; // 2주차 일별 사용 현황
 
     let participantsData = [];
+    let dailyAttendanceMap = {}; // phoneClean -> { '11/2': true, '11/3': false, ... }
     let currentParticipant = null;
 
-    // Fetch data: Try CSV first (CORS allowed on Google Sheets CSV export), fallback to JSONP
+    // Fetch data: Parallel fetch for Main sheet and Daily attendance sheets (Week 1 & Week 2)
     async function fetchSheetData() {
       showLoading(true);
       try {
-        const response = await fetch(`${CSV_URL}&_=${Date.now()}`);
-        if (!response.ok) throw new Error('CSV fetch HTTP status ' + response.status);
-        const text = await response.text();
-        processCsvData(text);
-        showLoading(false);
+        const cacheBuster = `&_=${Date.now()}`;
+        const mainUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${GID_MAIN}${cacheBuster}`;
+        const w1Url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${GID_WEEK1}${cacheBuster}`;
+        const w2Url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${GID_WEEK2}${cacheBuster}`;
+
+        const [resMain, resW1, resW2] = await Promise.all([
+          fetch(mainUrl).then(r => r.text()),
+          fetch(w1Url).then(r => r.text()).catch(e => { console.warn('W1 sheet fetch error', e); return ''; }),
+          fetch(w2Url).then(r => r.text()).catch(e => { console.warn('W2 sheet fetch error', e); return ''; })
+        ]);
+
+        // 1. Process Main Participant List
+        processMainCsv(resMain);
+
+        // 2. Process Daily Attendance
+        dailyAttendanceMap = {};
+        if (resW1) parseDailySheet(resW1);
+        if (resW2) parseDailySheet(resW2);
+
+        console.log(`Loaded ${participantsData.length} participants and daily records for ${Object.keys(dailyAttendanceMap).length} users.`);
       } catch (err) {
-        console.warn('CSV fetch failed, falling back to JSONP...', err);
-        fetchJsonpData();
+        console.error('Data fetch failed, trying JSONP fallback...', err);
+        await fetchJsonpData();
+      } finally {
+        showLoading(false);
       }
     }
 
-    // CSV Parser supporting quotes and commas
+    // CSV parser handling quoted entries and commas
     function parseCSV(text) {
-      const lines = text.trim().split(/\r?\n/);
+      const lines = text.trim().split(/\r?\n/).filter(l => l.trim().length > 0);
       return lines.map(line => {
         const row = [];
         let insideQuotes = false;
@@ -395,12 +420,11 @@
       });
     }
 
-    // Process CSV Text into participant objects
-    function processCsvData(csvText) {
+    // Process Main Overview Sheet
+    function processMainCsv(csvText) {
       const rows = parseCSV(csvText);
       participantsData = [];
 
-      // Row 0 is header
       for (let i = 1; i < rows.length; i++) {
         const cells = rows[i];
         if (!cells || cells.length < 5) continue;
@@ -416,12 +440,10 @@
         const phoneTail = phoneClean.slice(-4);
         if (!phoneTail || phoneTail.length < 4) continue;
 
-        // Clean Age (extract digits)
         const rawAge = cells[2] || '';
         const ageMatch = rawAge.match(/\d+/);
         const ageVal = ageMatch ? ageMatch[0] : '';
 
-        // Boolean parsers
         const isTrue = (val) => String(val).toUpperCase().includes('TRUE') || val === 'O' || val === '1';
 
         participantsData.push({
@@ -430,6 +452,7 @@
           age: ageVal,
           gender: (cells[3] || '').trim(),
           phone: phone,
+          phoneClean: phoneClean,
           phoneTail: phoneTail,
           email: cells[5] || '',
           preSurveyForm: isTrue(cells[6]),
@@ -446,8 +469,53 @@
           reward: Number(String(cells[17] || '').replace(/[^0-9]/g, '')) || 0
         });
       }
+    }
 
-      console.log(`Loaded ${participantsData.length} participants via CSV!`);
+    // Process Daily Sheets (Week 1 & Week 2)
+    function parseDailySheet(csvText) {
+      const rows = parseCSV(csvText);
+      if (rows.length < 3) return;
+
+      // Find header row containing date columns (like '11/2')
+      let headerIdx = rows.findIndex(r => r.some(c => c.includes('/') && /\d+\/\d+/.test(c)));
+      if (headerIdx === -1) headerIdx = 1;
+      const header = rows[headerIdx];
+
+      // Map date columns
+      const dateCols = {}; // colIdx -> '11/2'
+      let phoneColIdx = header.findIndex(c => c.includes('전화번호'));
+      if (phoneColIdx === -1) phoneColIdx = 3; // Default col 3
+
+      for (let c = 0; c < header.length; c++) {
+        const val = header[c].trim();
+        const dateMatch = val.match(/(\d+)\/(\d+)/);
+        if (dateMatch) {
+          const normDate = `${parseInt(dateMatch[1], 10)}/${parseInt(dateMatch[2], 10)}`;
+          dateCols[c] = normDate;
+        }
+      }
+
+      // Map each row's attendance
+      for (let r = headerIdx + 1; r < rows.length; r++) {
+        const row = rows[r];
+        if (row.length <= phoneColIdx) continue;
+        const phone = (row[phoneColIdx] || '').trim();
+        const phoneClean = phone.replace(/[^0-9]/g, '');
+        if (!phoneClean) continue;
+
+        if (!dailyAttendanceMap[phoneClean]) {
+          dailyAttendanceMap[phoneClean] = {};
+        }
+
+        for (const [colIdx, dateStr] of Object.entries(dateCols)) {
+          const val = (row[colIdx] || '').trim().toUpperCase();
+          if (val === 'TRUE') {
+            dailyAttendanceMap[phoneClean][dateStr] = true;
+          } else if (val === 'FALSE') {
+            dailyAttendanceMap[phoneClean][dateStr] = false;
+          }
+        }
+      }
     }
 
     // JSONP Fallback
@@ -459,7 +527,6 @@
             resolve();
           } catch (e) {
             console.error('Error processing sheet data:', e);
-            alert('데이터 처리 중 오류가 발생했습니다.');
           } finally {
             showLoading(false);
           }
@@ -470,26 +537,22 @@
 
         const script = document.createElement('script');
         script.id = 'gvizScript';
-        script.src = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=responseHandler:handleGvizResponse&_=${Date.now()}`;
-        script.onerror = function(err) {
-          console.error('JSONP script failed as well:', err);
+        script.src = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=responseHandler:handleGvizResponse&gid=0&_=${Date.now()}`;
+        script.onerror = function() {
           showLoading(false);
-          alert('구글 시트 데이터를 불러오지 못했습니다. 네트워크 연결을 확인해 주세요.');
+          alert('구글 시트 데이터를 불러오지 못했습니다.');
         };
         document.body.appendChild(script);
       });
     }
 
-    // Process Gviz JSON Fallback
     function processGvizData(json) {
       if (!json || !json.table || !json.table.rows) return;
-      const rows = json.table.rows;
       participantsData = [];
 
-      rows.forEach(r => {
+      json.table.rows.forEach(r => {
         if (!r || !r.c) return;
         const cells = r.c.map(cell => (cell ? cell.v : null));
-        
         const name = cells[1];
         const phone = cells[4];
         if (!name || !phone) return;
@@ -499,7 +562,6 @@
         const phoneTail = phoneClean.slice(-4);
         if (!phoneTail || phoneTail.length < 4) return;
 
-        // Age fallback (Kim Da-song age is 23 if gviz returns null)
         let ageVal = '';
         if (cells[2] !== null && cells[2] !== undefined) {
           ageVal = String(cells[2]).replace(/\.0$/, '').trim();
@@ -513,6 +575,7 @@
           age: ageVal,
           gender: cells[3] ? String(cells[3]).trim() : '',
           phone: phoneStr,
+          phoneClean: phoneClean,
           phoneTail: phoneTail,
           email: cells[5] || '',
           preSurveyForm: Boolean(cells[6]),
@@ -529,8 +592,6 @@
           reward: Number(cells[17]) || 0
         });
       });
-
-      console.log(`Loaded ${participantsData.length} participants via JSONP fallback!`);
     }
 
     // Search by Phone Tail
@@ -613,6 +674,68 @@
       return { showPost1, showPost2, diffDays };
     }
 
+    // Helper: Calculate Date Ranges for 5 Weeks (2 weeks -> 1 week rest -> 2 weeks)
+    function calculateDates(startStr) {
+      if (!startStr) {
+        const dummy = { rangeStr: '시작일 확인 필요', days: [] };
+        return { w1: dummy, w2: dummy, rest: dummy, w3: dummy, w4: dummy };
+      }
+
+      // Format: 2026.11.02
+      const parts = startStr.split('.').map(p => parseInt(p, 10));
+      const year = parts[0];
+      const month = parts[1] - 1;
+      const day = parts[2];
+      const baseDate = new Date(year, month, day);
+
+      const now = new Date();
+      const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+      function getRange(startOffset, numDays) {
+        const s = new Date(baseDate);
+        s.setDate(baseDate.getDate() + startOffset);
+        const e = new Date(baseDate);
+        e.setDate(baseDate.getDate() + startOffset + numDays - 1);
+
+        const days = [];
+        for (let i = 0; i < numDays; i++) {
+          const cur = new Date(baseDate);
+          cur.setDate(baseDate.getDate() + startOffset + i);
+          const curMidnight = new Date(cur.getFullYear(), cur.getMonth(), cur.getDate());
+
+          const m = cur.getMonth() + 1;
+          const d = cur.getDate();
+          const dateKey = `${m}/${d}`;
+
+          days.push({
+            dayIndex: i + 1,
+            dateKey: dateKey,
+            dateObj: cur,
+            isToday: curMidnight.getTime() === todayMidnight.getTime(),
+            isPast: curMidnight.getTime() < todayMidnight.getTime(),
+            isFuture: curMidnight.getTime() > todayMidnight.getTime()
+          });
+        }
+
+        const sStr = `${s.getMonth() + 1}.${s.getDate()}`;
+        const eStr = `${e.getMonth() + 1}.${e.getDate()}`;
+        return {
+          rangeStr: `${sStr} ~ ${eStr}`,
+          start: s,
+          end: e,
+          days: days
+        };
+      }
+
+      return {
+        w1: getRange(0, 7),     // Day 1 ~ 7
+        w2: getRange(7, 7),     // Day 8 ~ 14
+        rest: getRange(14, 7),  // Day 15 ~ 21 (Rest Week)
+        w3: getRange(21, 7),    // Day 22 ~ 28 (Part 2 Week 1)
+        w4: getRange(28, 7)     // Day 29 ~ 35 (Part 2 Week 2)
+      };
+    }
+
     // Render Participant Dashboard
     function renderParticipant(p) {
       currentParticipant = p;
@@ -627,12 +750,6 @@
       document.getElementById('userDetails').textContent = `${ageStr} • ${genderStr} • ${startText}`;
       
       document.getElementById('userReward').textContent = p.reward ? `${p.reward.toLocaleString()}원` : '0원';
-
-      // Overall Usage Progress (Total 28 days goal across 4 weeks)
-      const totalUsedDays = p.week1Count + p.week2Count + p.week3Count + p.week4Count;
-      const percent = Math.min(100, Math.round((totalUsedDays / 28) * 100));
-      document.getElementById('overallPercent').textContent = `${percent}% (${totalUsedDays} / 28일)`;
-      document.getElementById('overallBar').style.width = `${percent}%`;
 
       // 2. Pre-surveys status (Always shown)
       renderSurveyBadge('pre1Card', 'pre1Status', p.preSurveyForm);
@@ -661,22 +778,27 @@
           post2Card.classList.add('hidden');
         }
       } else {
-        // Hide post-survey section during early phase
         postSection.classList.add('hidden');
       }
 
-      // 3. Calculate 4-week date ranges based on startDate
+      // 3. Calculate 4-week date ranges based on participant's startDate
       const dates = calculateDates(p.startDate);
 
-      // Render 4 Weeks Cards
-      renderWeekCard('week1Card', 1, '1주차', dates.w1, p.week1Count);
-      renderWeekCard('week2Card', 2, '2주차', dates.w2, p.week2Count);
+      // Render 4 Weeks Cards with Exact Daily Attendance
+      const w1Stats = renderWeekCard('week1Card', 1, '1주차', dates.w1, p, p.week1Count);
+      const w2Stats = renderWeekCard('week2Card', 2, '2주차', dates.w2, p, p.week2Count);
       
       // Rest period
       document.getElementById('restDates').textContent = dates.rest.rangeStr;
 
-      renderWeekCard('week3Card', 3, '3주차', dates.w3, p.week3Count);
-      renderWeekCard('week4Card', 4, '4주차', dates.w4, p.week4Count);
+      const w3Stats = renderWeekCard('week3Card', 3, '3주차', dates.w3, p, p.week3Count);
+      const w4Stats = renderWeekCard('week4Card', 4, '4주차', dates.w4, p, p.week4Count);
+
+      // Overall Usage Progress (Total 28 days goal across 4 weeks)
+      const totalUsedDays = w1Stats.actualDone + w2Stats.actualDone + w3Stats.actualDone + w4Stats.actualDone;
+      const percent = Math.min(100, Math.round((totalUsedDays / 28) * 100));
+      document.getElementById('overallPercent').textContent = `${percent}% (${totalUsedDays} / 28일)`;
+      document.getElementById('overallBar').style.width = `${percent}%`;
 
       // Remarks
       const remarksBox = document.getElementById('remarksContainer');
@@ -692,7 +814,6 @@
       document.getElementById('resultSection').classList.remove('hidden');
       document.getElementById('refreshBtnContainer').classList.remove('hidden');
 
-      // Scroll to top
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
@@ -722,73 +843,68 @@
       }
     }
 
-    // Helper: Calculate Date Ranges for 5 Weeks (2 weeks -> 1 week rest -> 2 weeks)
-    function calculateDates(startStr) {
-      if (!startStr) {
-        const dummy = { rangeStr: '시작일 확인 필요', days: [] };
-        return { w1: dummy, w2: dummy, rest: dummy, w3: dummy, w4: dummy };
-      }
-
-      // Format: 2026.11.02
-      const parts = startStr.split('.').map(p => parseInt(p, 10));
-      const year = parts[0];
-      const month = parts[1] - 1;
-      const day = parts[2];
-      const baseDate = new Date(year, month, day);
-
-      function getRange(startOffset, numDays) {
-        const s = new Date(baseDate);
-        s.setDate(baseDate.getDate() + startOffset);
-        const e = new Date(baseDate);
-        e.setDate(baseDate.getDate() + startOffset + numDays - 1);
-
-        const sStr = `${s.getMonth() + 1}.${s.getDate()}`;
-        const eStr = `${e.getMonth() + 1}.${e.getDate()}`;
-        return {
-          rangeStr: `${sStr} ~ ${eStr}`,
-          start: s,
-          end: e
-        };
-      }
-
-      return {
-        w1: getRange(0, 7),     // Day 1 ~ 7
-        w2: getRange(7, 7),     // Day 8 ~ 14
-        rest: getRange(14, 7),  // Day 15 ~ 21 (Rest Week)
-        w3: getRange(21, 7),    // Day 22 ~ 28 (Part 2 Week 1)
-        w4: getRange(28, 7)     // Day 29 ~ 35 (Part 2 Week 2)
-      };
-    }
-
-    // Render Week Usage Card with 7-Day badges
-    function renderWeekCard(elementId, weekNum, title, dateRange, usedCount) {
+    // Render Week Usage Card with Accurate Daily Badges (Checked | Crossed | Scheduled)
+    function renderWeekCard(elementId, weekNum, title, dateRange, participant, fallbackCount) {
       const card = document.getElementById(elementId);
-      const isFull = usedCount >= 7;
-
-      // Badges for 7 days
+      const userRecords = dailyAttendanceMap[participant.phoneClean] || {};
+      
       let badgesHtml = '';
-      for (let i = 1; i <= 7; i++) {
-        const isDone = i <= usedCount;
-        if (isDone) {
-          badgesHtml += `
-            <div class="flex-1 flex flex-col items-center">
-              <div class="w-8 h-8 rounded-xl bg-indigo-600 text-white font-bold text-xs flex items-center justify-center shadow-sm shadow-indigo-100">
-                ✓
-              </div>
-              <span class="text-[10px] font-semibold text-indigo-700 mt-1">${i}일</span>
-            </div>
-          `;
+      let doneCount = 0;
+      let hasAnyRecordInSheet = false;
+
+      (dateRange.days || []).forEach(day => {
+        const att = userRecords[day.dateKey];
+        if (att !== undefined) hasAnyRecordInSheet = true;
+      });
+
+      (dateRange.days || []).forEach(day => {
+        const att = userRecords[day.dateKey];
+        let badgeContent = '';
+        let badgeStyle = '';
+
+        if (att === true) {
+          // 1. Participated: Checked ✓
+          doneCount++;
+          badgeStyle = 'bg-indigo-600 text-white font-bold shadow-sm shadow-indigo-100';
+          badgeContent = '✓';
+        } else if (att === false) {
+          // 2. Not Participated: Cross ✕ (if past or today) vs Scheduled - (if future)
+          if (day.isPast || day.isToday) {
+            badgeStyle = 'bg-rose-50 border border-rose-200 text-rose-500 font-bold';
+            badgeContent = '✕';
+          } else {
+            // Future dates with default FALSE in sheet are shown as scheduled
+            badgeStyle = 'bg-slate-100 border border-slate-200 text-slate-300 font-medium';
+            badgeContent = '-';
+          }
         } else {
-          badgesHtml += `
-            <div class="flex-1 flex flex-col items-center opacity-40">
-              <div class="w-8 h-8 rounded-xl bg-slate-100 border border-slate-200 text-slate-400 font-medium text-xs flex items-center justify-center">
-                ${i}
-              </div>
-              <span class="text-[10px] text-slate-400 mt-1">${i}일</span>
-            </div>
-          `;
+          // 3. No records in sheet (e.g. Weeks 3 & 4)
+          if (!hasAnyRecordInSheet && fallbackCount > 0 && day.dayIndex <= fallbackCount) {
+            doneCount++;
+            badgeStyle = 'bg-indigo-600 text-white font-bold shadow-sm shadow-indigo-100';
+            badgeContent = '✓';
+          } else {
+            badgeStyle = 'bg-slate-100 border border-slate-200 text-slate-300 font-medium';
+            badgeContent = '-';
+          }
         }
-      }
+
+        // Today indicator
+        const todayTag = day.isToday ? `<span class="text-[9px] text-indigo-600 font-extrabold -mb-1">오늘</span>` : '';
+        const dateTextColor = day.isToday ? 'text-indigo-600 font-bold' : 'text-slate-500';
+
+        badgesHtml += `
+          <div class="flex-1 flex flex-col items-center">
+            ${todayTag}
+            <div class="w-8 h-8 rounded-xl ${badgeStyle} text-xs flex items-center justify-center transition-all">
+              ${badgeContent}
+            </div>
+            <span class="text-[10px] ${dateTextColor} mt-1">${day.dateKey}</span>
+          </div>
+        `;
+      });
+
+      const actualDone = hasAnyRecordInSheet ? doneCount : (fallbackCount || 0);
 
       card.innerHTML = `
         <div class="flex items-center justify-between mb-2.5">
@@ -796,19 +912,21 @@
             <span class="font-bold text-slate-900 text-sm">${title}</span>
             <span class="text-[11px] text-slate-400 font-medium">${dateRange.rangeStr}</span>
           </div>
-          <span class="text-xs font-bold ${usedCount > 0 ? 'text-indigo-600' : 'text-slate-400'}">
-            ${usedCount} / 7일 달성
+          <span class="text-xs font-bold ${actualDone > 0 ? 'text-indigo-600' : 'text-slate-400'}">
+            ${actualDone} / 7일 달성
           </span>
         </div>
         
-        <!-- 7-Day Indicator Badges -->
+        <!-- 7-Day Exact Date Badges -->
         <div class="flex items-center justify-between gap-1.5 pt-1">
           ${badgesHtml}
         </div>
       `;
+
+      return { actualDone };
     }
 
-    // Name masking helper (홍길동 -> 홍*동, 이산 -> 이*)
+    // Name masking helper
     function maskName(name) {
       if (!name || name.length <= 1) return name;
       if (name.length === 2) return name[0] + '*';
