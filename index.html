@@ -931,12 +931,18 @@
             badgeContent = '-';
           }
         } else {
-          // 3. No records in sheet (e.g. Weeks 3 & 4)
+          // No explicit record for this date
           if (!hasAnyRecordInSheet && fallbackCount > 0 && day.dayIndex <= fallbackCount) {
+            // Use fallback count when the sheet has no rows for this participant (e.g., weeks 3 & 4)
             doneCount++;
             badgeStyle = 'bg-indigo-600 text-white font-bold shadow-sm shadow-indigo-100';
             badgeContent = '✓';
+          } else if (day.isPast || day.isToday) {
+            // Past or today with no entry → not participated (✕)
+            badgeStyle = 'bg-rose-50 border border-rose-200 text-rose-500 font-bold';
+            badgeContent = '✕';
           } else {
+            // Future dates with no entry → scheduled (–)
             badgeStyle = 'bg-slate-100 border border-slate-200 text-slate-300 font-medium';
             badgeContent = '-';
           }
