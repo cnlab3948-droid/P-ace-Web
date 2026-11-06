@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>P'ACE 사용성 평가 참여 현황</title>
+  <!-- Google Fonts & Tailwind CDN -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Pretendard', '-apple-system', 'BlinkMacSystemFont', 'system-ui', 'Roboto', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      font-family: 'Pretendard', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      background-color: #f8fafc;
+    }
+    /* Smooth transitions */
+    .fade-in {
+      animation: fadeIn 0.3s ease-in-out;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    /* Hide scrollbar for tabs */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+</head>
+<body class="text-slate-800 min-h-screen flex flex-col justify-between">
+
+  <!-- Header -->
+  <header class="bg-white border-b border-slate-100 sticky top-0 z-30 shadow-sm backdrop-blur-md bg-white/90">
+    <div class="max-w-md mx-auto px-5 py-3.5 flex items-center justify-between">
+      <div class="flex items-center space-x-2.5">
+        <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white font-bold text-sm shadow-md shadow-indigo-100">
+          P'
+        </div>
+        <div>
+          <h1 class="text-base font-bold text-slate-900 leading-tight">P'ACE 사용성 평가</h1>
+          <p class="text-xs text-slate-400">참여자 전용 현황 보드</p>
+        </div>
+      </div>
+      <div id="refreshBtnContainer" class="hidden">
+        <button onclick="refreshData()" class="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-slate-50 transition" title="새로고침">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="max-w-md mx-auto w-full px-5 py-6 flex-1">
+
+    <!-- Screen 1: Phone Input Search Screen -->
+    <section id="searchSection" class="fade-in space-y-6">
+      <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 text-center relative overflow-hidden">
+        <div class="absolute -right-6 -top-6 w-28 h-28 bg-indigo-50 rounded-full blur-2xl pointer-events-none"></div>
+        <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 mb-4 shadow-inner">
+          <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+          </svg>
+        </div>
+        <h2 class="text-xl font-bold text-slate-900 mb-1.5">참여 현황 조회하기</h2>
+        <p class="text-sm text-slate-500 mb-6">등록하신 휴대폰 번호의 <span class="text-indigo-600 font-semibold">뒷자리 4자리</span>를 입력해 주세요.</p>
+
+        <form onsubmit="handleSearch(event)" class="space-y-4">
+          <div class="relative">
+            <input 
+              type="tel" 
+              id="phoneInput" 
+              maxlength="4" 
+              pattern="[0-9]*" 
+              inputmode="numeric" 
+              placeholder="예: 3041" 
+              class="w-full text-center tracking-widest text-2xl font-bold py-3.5 px-4 bg-slate-50 border-2 border-slate-200 rounded-2xl focus:border-indigo-600 focus:bg-white focus:outline-none transition-all placeholder:text-slate-300 placeholder:tracking-normal placeholder:font-normal placeholder:text-lg"
+              autocomplete="off"
+              autofocus
+            >
+          </div>
+          <button 
+            type="submit" 
+            id="searchBtn"
+            class="w-full py-3.5 px-6 rounded-2xl bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] text-white font-semibold text-base shadow-lg shadow-indigo-200 transition flex items-center justify-center space-x-2"
+          >
+            <span>내 현황 확인하기</span>
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
+            </svg>
+          </button>
+        </form>
+      </div>
+
+      <!-- Quick Guidance Box -->
+      <div class="bg-gradient-to-br from-indigo-50/50 to-slate-50 rounded-2xl p-4 border border-indigo-100/50 text-xs text-slate-600 space-y-2">
+        <div class="font-semibold text-indigo-900 flex items-center space-x-1.5">
+          <svg class="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+          <span>평가 진행 안내</span>
+        </div>
+        <p class="leading-relaxed">
+          • 평가 시작 전 <strong>사전 설문 2가지</strong>를 반드시 완료해 주세요.<br>
+          • <strong>1차 2주 사용 ➔ 1주일 휴식 ➔ 2차 2주 사용</strong> 순서로 진행됩니다.<br>
+          • 매일 꾸준한 앱 사용이 평가 결과에 큰 도움이 됩니다!
+        </p>
+      </div>
+    </section>
+
+    <!-- Screen 2: Dashboard Result Screen (Hidden by default) -->
+    <section id="resultSection" class="hidden fade-in space-y-4">
+      
+      <!-- Back / Change Number Button -->
+      <div class="flex items-center justify-between">
+        <button onclick="goToSearch()" class="inline-flex items-center text-xs font-semibold text-slate-500 hover:text-indigo-600 transition space-x-1">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+          </svg>
+          <span>다른 번호로 조회</span>
+        </button>
+        <span id="updateTimeTag" class="text-[11px] text-slate-400">실시간 연동됨</span>
+      </div>
+
+      <!-- 1. Participant Info Card -->
+      <div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
+        <div class="flex items-start justify-between mb-4">
+          <div>
+            <div class="flex items-center space-x-2">
+              <h2 id="userName" class="text-xl font-bold text-slate-900">참가자</h2>
+              <span id="userGroup" class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-50 text-indigo-700">List 1</span>
+            </div>
+            <p id="userDetails" class="text-xs text-slate-500 mt-1">만 00세 • 여성 • 시작일 0000.00.00</p>
+          </div>
+          <div class="text-right">
+            <span class="text-[11px] font-medium text-slate-400 block">리워드(참가비)</span>
+            <span id="userReward" class="text-base font-extrabold text-indigo-600">0원</span>
+          </div>
+        </div>
+
+        <!-- Overall Progress Bar -->
+        <div class="space-y-1.5 pt-2 border-t border-slate-50">
+          <div class="flex justify-between text-xs">
+            <span class="font-medium text-slate-600">전체 앱 사용 달성률</span>
+            <span id="overallPercent" class="font-bold text-indigo-600">0% (0 / 28일)</span>
+          </div>
+          <div class="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+            <div id="overallBar" class="bg-gradient-to-r from-indigo-500 to-violet-500 h-full rounded-full transition-all duration-700" style="width: 0%"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. Survey Status Card (사전 및 사후 설문) -->
+      <div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
+        <h3 class="text-sm font-bold text-slate-900 mb-3 flex items-center justify-between">
+          <span>설문 및 검사 참여 현황</span>
+          <span class="text-[11px] font-normal text-slate-400">필수 항목</span>
+        </h3>
+        <div class="grid grid-cols-2 gap-2.5">
+          <!-- Pre-survey 1 -->
+          <div id="pre1Card" class="p-3 rounded-2xl border transition-all">
+            <div class="text-[11px] text-slate-400 mb-1">사전 설문 1</div>
+            <div class="text-xs font-bold text-slate-800">구글 폼 설문</div>
+            <div id="pre1Status" class="mt-2 inline-flex items-center text-xs font-semibold">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+
+          <!-- Pre-survey 2 -->
+          <div id="pre2Card" class="p-3 rounded-2xl border transition-all">
+            <div class="text-[11px] text-slate-400 mb-1">사전 설문 2</div>
+            <div class="text-xs font-bold text-slate-800">인지 검사</div>
+            <div id="pre2Status" class="mt-2 inline-flex items-center text-xs font-semibold">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+
+          <!-- Post-survey 1 -->
+          <div id="post1Card" class="p-3 rounded-2xl border transition-all">
+            <div class="text-[11px] text-slate-400 mb-1">1차 사후 설문</div>
+            <div class="text-xs font-bold text-slate-800">2주차 완료 후</div>
+            <div id="post1Status" class="mt-2 inline-flex items-center text-xs font-semibold">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+
+          <!-- Post-survey 2 -->
+          <div id="post2Card" class="p-3 rounded-2xl border transition-all">
+            <div class="text-[11px] text-slate-400 mb-1">2차 사후 설문</div>
+            <div class="text-xs font-bold text-slate-800">최종 종료 후</div>
+            <div id="post2Status" class="mt-2 inline-flex items-center text-xs font-semibold">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. 4-Week Usage Dashboard (핵심: 1차 2주 -> 휴식 1주 -> 2차 2주) -->
+      <div class="space-y-3">
+        <div class="flex items-center justify-between px-1">
+          <h3 class="text-sm font-bold text-slate-900">주차별 앱 사용 기록</h3>
+          <span class="text-xs text-slate-400">목표: 주 7일 매일 사용</span>
+        </div>
+
+        <!-- Part 1: First 2 Weeks -->
+        <div class="space-y-2.5">
+          <div class="text-[11px] font-bold text-indigo-700 uppercase tracking-wider flex items-center space-x-1.5 px-1">
+            <span class="w-1.5 h-1.5 rounded-full bg-indigo-600"></span>
+            <span>PART 1 • 첫 2주 평가</span>
+          </div>
+
+          <!-- Week 1 Card -->
+          <div id="week1Card" class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+            <!-- Dynamically populated -->
+          </div>
+
+          <!-- Week 2 Card -->
+          <div id="week2Card" class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+
+        <!-- Rest Period Banner (휴지기 1주) -->
+        <div class="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/60 rounded-2xl p-4 flex items-center space-x-3 shadow-sm">
+          <div class="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center text-xl flex-shrink-0">
+            🌿
+          </div>
+          <div class="flex-1">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-amber-900">1주일 휴식 주간</span>
+              <span id="restDates" class="text-[11px] font-medium text-amber-700">날짜 계산 중</span>
+            </div>
+            <p class="text-[11px] text-amber-800/80 mt-0.5 leading-snug">
+              이 기간에는 앱을 사용하지 않고 휴식합니다. 다음 2주차 일정을 위해 충전하세요!
+            </p>
+          </div>
+        </div>
+
+        <!-- Part 2: Next 2 Weeks -->
+        <div class="space-y-2.5 pt-1">
+          <div class="text-[11px] font-bold text-violet-700 uppercase tracking-wider flex items-center space-x-1.5 px-1">
+            <span class="w-1.5 h-1.5 rounded-full bg-violet-600"></span>
+            <span>PART 2 • 후반 2주 평가 (다른 기능)</span>
+          </div>
+
+          <!-- Week 3 Card -->
+          <div id="week3Card" class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+            <!-- Dynamically populated -->
+          </div>
+
+          <!-- Week 4 Card -->
+          <div id="week4Card" class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Note / Remarks box if any -->
+      <div id="remarksContainer" class="hidden bg-slate-50 border border-slate-200/70 rounded-2xl p-3.5 text-xs text-slate-600">
+        <span class="font-semibold text-slate-700">📌 비고사항:</span>
+        <span id="remarksText" class="ml-1"></span>
+      </div>
+
+    </section>
+
+    <!-- Modal: Duplicate Phone Tails Selector -->
+    <div id="duplicateModal" class="hidden fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+      <div class="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-4 fade-in">
+        <div class="text-center">
+          <div class="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 mx-auto flex items-center justify-center mb-3">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+            </svg>
+          </div>
+          <h3 class="text-lg font-bold text-slate-900">본인 확인</h3>
+          <p class="text-xs text-slate-500 mt-1">동일한 뒷자리의 참가자가 있습니다.<br>본인의 이름을 선택해 주세요.</p>
+        </div>
+        <div id="duplicateList" class="space-y-2 max-h-56 overflow-y-auto">
+          <!-- Populated dynamically -->
+        </div>
+        <button onclick="closeModal()" class="w-full py-2.5 rounded-xl text-slate-500 hover:bg-slate-100 text-xs font-semibold transition">
+          닫기
+        </button>
+      </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="hidden fixed inset-0 z-50 bg-white/80 backdrop-blur-sm flex flex-col items-center justify-center space-y-3">
+      <div class="w-10 h-10 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+      <p class="text-xs font-semibold text-slate-600">시트 데이터를 불러오는 중...</p>
+    </div>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="text-center py-4 text-[11px] text-slate-400 border-t border-slate-100 bg-white">
+    <p>P'ACE 사용성 평가 연구팀 • 실시간 구글 시트 연동 시스템</p>
+  </footer>
+
+  <script>
+    // Google Sheets ID & API
+    const SHEET_ID = '1iIidimS0u8QY8eop5bYyB_IPqsPRSR0cy6GB0HrHdwk';
+    const GVIZ_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json`;
+
+    let participantsData = [];
+    let currentParticipant = null;
+
+    // Fetch data from Google Sheets
+    async function fetchSheetData() {
+      showLoading(true);
+      try {
+        const response = await fetch(GVIZ_URL);
+        const text = await response.text();
+        const jsonStr = text.substring(text.indexOf('{'), text.lastIndexOf('}') + 1);
+        const json = JSON.parse(jsonStr);
+
+        const rows = json.table.rows;
+        participantsData = [];
+
+        rows.forEach(r => {
+          if (!r || !r.c) return;
+          const cells = r.c.map(cell => (cell ? cell.v : null));
+          
+          // Row structure:
+          // 0: 시작 날짜, 1: 이름, 2: 만 나이, 3: 성별, 4: 전화번호, 5: 이메일
+          // 6: 사전 설문_구글 폼, 7: 사전 설문_인지 검사, 8: 1차 사후 설문, 9: 2차 사후 설문
+          // 10: 종료 날짜, 11: List, 12: 비고, 13: 1주, 14: 2주, 15: 3주, 16: 4주, 17: 참가비
+          const name = cells[1];
+          const phone = cells[4];
+          if (!name || !phone || typeof phone !== 'string') return;
+
+          const phoneClean = phone.replace(/[^0-9]/g, '');
+          const phoneTail = phoneClean.slice(-4);
+
+          participantsData.push({
+            startDate: cells[0] ? String(cells[0]).trim() : '',
+            name: String(name).trim(),
+            age: cells[2] !== null ? cells[2] : '',
+            gender: cells[3] ? String(cells[3]).trim() : '',
+            phone: phone,
+            phoneTail: phoneTail,
+            email: cells[5] || '',
+            preSurveyForm: Boolean(cells[6]),
+            preSurveyCog: Boolean(cells[7]),
+            postSurvey1: Boolean(cells[8]),
+            postSurvey2: Boolean(cells[9]),
+            endDate: cells[10] || '',
+            listGroup: cells[11] || '',
+            remarks: cells[12] || '',
+            week1Count: Number(cells[13]) || 0,
+            week2Count: Number(cells[14]) || 0,
+            week3Count: Number(cells[15]) || 0,
+            week4Count: Number(cells[16]) || 0,
+            reward: Number(cells[17]) || 0
+          });
+        });
+
+        console.log(`Loaded ${participantsData.length} participants`);
+      } catch (err) {
+        console.error('Error fetching sheet:', err);
+        alert('데이터를 가져오는데 실패했습니다. 잠시 후 다시 시도해 주세요.');
+      } finally {
+        showLoading(false);
+      }
+    }
+
+    // Search by Phone Tail
+    function handleSearch(e) {
+      if (e) e.preventDefault();
+      const input = document.getElementById('phoneInput').value.trim();
+      if (!input || input.length !== 4) {
+        alert('휴대폰 번호 뒷자리 4자리를 정확히 입력해 주세요.');
+        return;
+      }
+
+      const matches = participantsData.filter(p => p.phoneTail === input);
+      if (matches.length === 0) {
+        alert('입력하신 번호(' + input + ')로 등록된 참가자를 찾을 수 없습니다.\n전화번호를 다시 확인해 주세요.');
+        return;
+      }
+
+      if (matches.length === 1) {
+        renderParticipant(matches[0]);
+      } else {
+        // Multiple matches -> show selection modal
+        showDuplicateModal(matches);
+      }
+    }
+
+    // Modal for duplicate phone tails
+    function showDuplicateModal(matches) {
+      const modal = document.getElementById('duplicateModal');
+      const list = document.getElementById('duplicateList');
+      list.innerHTML = '';
+
+      matches.forEach(p => {
+        const maskedName = maskName(p.name);
+        const btn = document.createElement('button');
+        btn.className = 'w-full p-3 rounded-2xl bg-slate-50 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 text-left flex items-center justify-between transition';
+        btn.innerHTML = `
+          <div>
+            <div class="text-sm font-bold text-slate-800">${maskedName}</div>
+            <div class="text-[11px] text-slate-400">만 ${p.age}세 • ${p.gender}</div>
+          </div>
+          <span class="text-xs font-semibold text-indigo-600">선택 ➔</span>
+        `;
+        btn.onclick = () => {
+          closeModal();
+          renderParticipant(p);
+        };
+        list.appendChild(btn);
+      });
+
+      modal.classList.remove('hidden');
+    }
+
+    function closeModal() {
+      document.getElementById('duplicateModal').classList.add('hidden');
+    }
+
+    // Render Participant Dashboard
+    function renderParticipant(p) {
+      currentParticipant = p;
+
+      // 1. Basic Info
+      document.getElementById('userName').textContent = maskName(p.name);
+      document.getElementById('userGroup').textContent = p.listGroup || '참가자';
+      
+      const startText = p.startDate ? `시작일 ${p.startDate}` : '시작일 미정';
+      document.getElementById('userDetails').textContent = `만 ${p.age}세 • ${p.gender === '여' ? '여성' : (p.gender === '남' ? '남성' : p.gender)} • ${startText}`;
+      
+      document.getElementById('userReward').textContent = p.reward ? `${p.reward.toLocaleString()}원` : '0원';
+
+      // Overall Usage Progress (Total 28 days goal across 4 weeks)
+      const totalUsedDays = p.week1Count + p.week2Count + p.week3Count + p.week4Count;
+      const percent = Math.min(100, Math.round((totalUsedDays / 28) * 100));
+      document.getElementById('overallPercent').textContent = `${percent}% (${totalUsedDays} / 28일)`;
+      document.getElementById('overallBar').style.width = `${percent}%`;
+
+      // 2. Surveys status
+      renderSurveyBadge('pre1Card', 'pre1Status', p.preSurveyForm);
+      renderSurveyBadge('pre2Card', 'pre2Status', p.preSurveyCog);
+      renderSurveyBadge('post1Card', 'post1Status', p.postSurvey1);
+      renderSurveyBadge('post2Card', 'post2Status', p.postSurvey2);
+
+      // 3. Calculate 4-week date ranges based on startDate
+      const dates = calculateDates(p.startDate);
+
+      // Render 4 Weeks Cards
+      renderWeekCard('week1Card', 1, '1주차', dates.w1, p.week1Count);
+      renderWeekCard('week2Card', 2, '2주차', dates.w2, p.week2Count);
+      
+      // Rest period
+      document.getElementById('restDates').textContent = dates.rest.rangeStr;
+
+      renderWeekCard('week3Card', 3, '3주차', dates.w3, p.week3Count);
+      renderWeekCard('week4Card', 4, '4주차', dates.w4, p.week4Count);
+
+      // Remarks
+      const remarksBox = document.getElementById('remarksContainer');
+      if (p.remarks && p.remarks.trim()) {
+        remarksBox.classList.remove('hidden');
+        document.getElementById('remarksText').textContent = p.remarks;
+      } else {
+        remarksBox.classList.add('hidden');
+      }
+
+      // Switch views
+      document.getElementById('searchSection').classList.add('hidden');
+      document.getElementById('resultSection').classList.remove('hidden');
+      document.getElementById('refreshBtnContainer').classList.remove('hidden');
+
+      // Scroll to top
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // Helper: Survey Badge UI
+    function renderSurveyBadge(cardId, statusId, isCompleted) {
+      const card = document.getElementById(cardId);
+      const status = document.getElementById(statusId);
+      if (isCompleted) {
+        card.className = 'p-3 rounded-2xl border border-emerald-200 bg-emerald-50/50';
+        status.className = 'mt-2 inline-flex items-center text-xs font-bold text-emerald-700 space-x-1';
+        status.innerHTML = `
+          <svg class="w-3.5 h-3.5 text-emerald-600" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+          </svg>
+          <span>완료됨</span>
+        `;
+      } else {
+        card.className = 'p-3 rounded-2xl border border-slate-200 bg-slate-50/50';
+        status.className = 'mt-2 inline-flex items-center text-xs font-semibold text-slate-400 space-x-1';
+        status.innerHTML = `
+          <svg class="w-3.5 h-3.5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="9" stroke-width="2"></circle>
+            <path stroke-linecap="round" stroke-width="2" d="M12 7v5l3 3"></path>
+          </svg>
+          <span>대기 중</span>
+        `;
+      }
+    }
+
+    // Helper: Calculate Date Ranges for 5 Weeks (2 weeks -> 1 week rest -> 2 weeks)
+    function calculateDates(startStr) {
+      if (!startStr) {
+        const dummy = { rangeStr: '시작일 확인 필요', days: [] };
+        return { w1: dummy, w2: dummy, rest: dummy, w3: dummy, w4: dummy };
+      }
+
+      // Format: 2026.11.02
+      const parts = startStr.split('.').map(p => parseInt(p, 10));
+      const year = parts[0];
+      const month = parts[1] - 1;
+      const day = parts[2];
+      const baseDate = new Date(year, month, day);
+
+      function getRange(startOffset, numDays) {
+        const s = new Date(baseDate);
+        s.setDate(baseDate.getDate() + startOffset);
+        const e = new Date(baseDate);
+        e.setDate(baseDate.getDate() + startOffset + numDays - 1);
+
+        const sStr = `${s.getMonth() + 1}.${s.getDate()}`;
+        const eStr = `${e.getMonth() + 1}.${e.getDate()}`;
+        return {
+          rangeStr: `${sStr} ~ ${eStr}`,
+          start: s,
+          end: e
+        };
+      }
+
+      return {
+        w1: getRange(0, 7),     // Day 1 ~ 7
+        w2: getRange(7, 7),     // Day 8 ~ 14
+        rest: getRange(14, 7),  // Day 15 ~ 21 (Rest Week)
+        w3: getRange(21, 7),    // Day 22 ~ 28 (Part 2 Week 1)
+        w4: getRange(28, 7)     // Day 29 ~ 35 (Part 2 Week 2)
+      };
+    }
+
+    // Render Week Usage Card with 7-Day badges
+    function renderWeekCard(elementId, weekNum, title, dateRange, usedCount) {
+      const card = document.getElementById(elementId);
+      const isFull = usedCount >= 7;
+
+      // Badges for 7 days
+      let badgesHtml = '';
+      for (let i = 1; i <= 7; i++) {
+        const isDone = i <= usedCount;
+        if (isDone) {
+          badgesHtml += `
+            <div class="flex-1 flex flex-col items-center">
+              <div class="w-8 h-8 rounded-xl bg-indigo-600 text-white font-bold text-xs flex items-center justify-center shadow-sm shadow-indigo-100">
+                ✓
+              </div>
+              <span class="text-[10px] font-semibold text-indigo-700 mt-1">${i}일</span>
+            </div>
+          `;
+        } else {
+          badgesHtml += `
+            <div class="flex-1 flex flex-col items-center opacity-40">
+              <div class="w-8 h-8 rounded-xl bg-slate-100 border border-slate-200 text-slate-400 font-medium text-xs flex items-center justify-center">
+                ${i}
+              </div>
+              <span class="text-[10px] text-slate-400 mt-1">${i}일</span>
+            </div>
+          `;
+        }
+      }
+
+      card.innerHTML = `
+        <div class="flex items-center justify-between mb-2.5">
+          <div class="flex items-center space-x-2">
+            <span class="font-bold text-slate-900 text-sm">${title}</span>
+            <span class="text-[11px] text-slate-400 font-medium">${dateRange.rangeStr}</span>
+          </div>
+          <span class="text-xs font-bold ${usedCount > 0 ? 'text-indigo-600' : 'text-slate-400'}">
+            ${usedCount} / 7일 달성
+          </span>
+        </div>
+        
+        <!-- 7-Day Indicator Badges -->
+        <div class="flex items-center justify-between gap-1.5 pt-1">
+          ${badgesHtml}
+        </div>
+      `;
+    }
+
+    // Name masking helper (홍길동 -> 홍*동, 이산 -> 이*)
+    function maskName(name) {
+      if (!name || name.length <= 1) return name;
+      if (name.length === 2) return name[0] + '*';
+      return name[0] + '*'.repeat(name.length - 2) + name[name.length - 1];
+    }
+
+    // Navigation
+    function goToSearch() {
+      document.getElementById('resultSection').classList.add('hidden');
+      document.getElementById('refreshBtnContainer').classList.add('hidden');
+      document.getElementById('searchSection').classList.remove('hidden');
+      document.getElementById('phoneInput').value = '';
+      document.getElementById('phoneInput').focus();
+    }
+
+    async function refreshData() {
+      await fetchSheetData();
+      if (currentParticipant) {
+        const updated = participantsData.find(p => p.phone === currentParticipant.phone);
+        if (updated) {
+          renderParticipant(updated);
+        }
+      }
+    }
+
+    function showLoading(show) {
+      const el = document.getElementById('loadingOverlay');
+      if (show) el.classList.remove('hidden');
+      else el.classList.add('hidden');
+    }
+
+    // Initial Load
+    window.addEventListener('DOMContentLoaded', () => {
+      fetchSheetData();
+    });
+  </script>
+</body>
+</html>
