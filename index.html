@@ -353,35 +353,31 @@
     // Google Sheets ID & Sheet GIDs
     const SHEET_ID = '1iIidimS0u8QY8eop5bYyB_IPqsPRSR0cy6GB0HrHdwk';
     const GID_MAIN = '0';          // 종합 현황
-    const GID_WEEK1 = '944633780';  // 1주차 일별 사용 현황
-    const GID_WEEK2 = '1719870122'; // 2주차 일별 사용 현황
+    const GID_WEEK1 = '944633780';  // 1주차 일별 사용 현황 (2주차는 추후 확정 시 연동)
 
     let participantsData = [];
     let dailyAttendanceMap = {}; // phoneClean -> { '11/2': true, '11/3': false, ... }
     let currentParticipant = null;
 
-    // Fetch data: Parallel fetch for Main sheet and Daily attendance sheets (Week 1 & Week 2)
+    // Fetch data: Parallel fetch for Main sheet and Week 1 daily attendance sheet
     async function fetchSheetData() {
       showLoading(true);
       try {
         const cacheBuster = `&_=${Date.now()}`;
         const mainUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${GID_MAIN}${cacheBuster}`;
         const w1Url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${GID_WEEK1}${cacheBuster}`;
-        const w2Url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${GID_WEEK2}${cacheBuster}`;
 
-        const [resMain, resW1, resW2] = await Promise.all([
+        const [resMain, resW1] = await Promise.all([
           fetch(mainUrl).then(r => r.text()),
-          fetch(w1Url).then(r => r.text()).catch(e => { console.warn('W1 sheet fetch error', e); return ''; }),
-          fetch(w2Url).then(r => r.text()).catch(e => { console.warn('W2 sheet fetch error', e); return ''; })
+          fetch(w1Url).then(r => r.text()).catch(e => { console.warn('W1 sheet fetch error', e); return ''; })
         ]);
 
-        // 1. Process Main Participant List
+        // 1. Process Main Participant List (Dynamic column headers)
         processMainCsv(resMain);
 
-        // 2. Process Daily Attendance
+        // 2. Process Week 1 Daily Attendance
         dailyAttendanceMap = {};
         if (resW1) parseDailySheet(resW1);
-        if (resW2) parseDailySheet(resW2);
 
         console.log(`Loaded ${participantsData.length} participants and daily records for ${Object.keys(dailyAttendanceMap).length} users.`);
       } catch (err) {
@@ -420,53 +416,77 @@
       });
     }
 
-    // Process Main Overview Sheet
+    // Process Main Overview Sheet with DYNAMIC Column Headers
     function processMainCsv(csvText) {
       const rows = parseCSV(csvText);
       participantsData = [];
+      if (rows.length < 2) return;
+
+      // Dynamically locate column indices by header keyword
+      const header = rows[0].map(h => h.trim());
+      const findCol = (keywords, defaultIdx) => {
+        const idx = header.findIndex(h => keywords.some(k => h.includes(k)));
+        return idx !== -1 ? idx : defaultIdx;
+      };
+
+      const startIdx = findCol(['시작'], 0);
+      const nameIdx = findCol(['이름', '성명'], 1);
+      const ageIdx = findCol(['나이'], 2);
+      const genderIdx = findCol(['성별'], 3);
+      const phoneIdx = findCol(['전화', '연락처', '휴대폰'], 4);
+      const emailIdx = findCol(['이메일', 'email'], 5);
+      const pre1Idx = findCol(['구글 폼', '사전 설문_구글', '사전설문1'], 6);
+      const pre2Idx = findCol(['인지 검사', '사전 설문_인지', '사전설문2'], 7);
+      const post1Idx = findCol(['1차 사후', '1차사후'], 8);
+      const post2Idx = findCol(['2차 사후', '2차사후'], 9);
+      const endIdx = findCol(['종료 날짜', '종료'], 10);
+      const listIdx = findCol(['List', '리스트', '그룹'], 11);
+      const remarksIdx = findCol(['비고', '메모'], 12);
+      const w1Idx = findCol(['1주'], 13);
+      const w2Idx = findCol(['2주'], 14);
+      const w3Idx = findCol(['3주'], 15);
+      const w4Idx = findCol(['4주'], 16);
+      const rewardIdx = findCol(['참가비', '리워드', '금액'], 17);
 
       for (let i = 1; i < rows.length; i++) {
         const cells = rows[i];
         if (!cells || cells.length < 5) continue;
 
-        // 0: 시작 날짜, 1: 이름, 2: 만 나이, 3: 성별, 4: 전화번호, 5: 이메일
-        // 6: 사전 설문_구글 폼, 7: 사전 설문_인지 검사, 8: 1차 사후 설문, 9: 2차 사후 설문
-        // 10: 종료 날짜, 11: List, 12: 비고, 13: 1주, 14: 2주, 15: 3주, 16: 4주, 17: 참가비
-        const name = (cells[1] || '').trim();
-        const phone = (cells[4] || '').trim();
+        const name = (cells[nameIdx] || '').trim();
+        const phone = (cells[phoneIdx] || '').trim();
         if (!name || !phone) continue;
 
         const phoneClean = phone.replace(/[^0-9]/g, '');
         const phoneTail = phoneClean.slice(-4);
         if (!phoneTail || phoneTail.length < 4) continue;
 
-        const rawAge = cells[2] || '';
+        const rawAge = cells[ageIdx] || '';
         const ageMatch = rawAge.match(/\d+/);
         const ageVal = ageMatch ? ageMatch[0] : '';
 
-        const isTrue = (val) => String(val).toUpperCase().includes('TRUE') || val === 'O' || val === '1';
+        const isTrue = (val) => String(val || '').toUpperCase().includes('TRUE') || val === 'O' || val === '1';
 
         participantsData.push({
-          startDate: (cells[0] || '').trim(),
+          startDate: (cells[startIdx] || '').trim(),
           name: name,
           age: ageVal,
-          gender: (cells[3] || '').trim(),
+          gender: (cells[genderIdx] || '').trim(),
           phone: phone,
           phoneClean: phoneClean,
           phoneTail: phoneTail,
-          email: cells[5] || '',
-          preSurveyForm: isTrue(cells[6]),
-          preSurveyCog: isTrue(cells[7]),
-          postSurvey1: isTrue(cells[8]),
-          postSurvey2: isTrue(cells[9]),
-          endDate: cells[10] || '',
-          listGroup: cells[11] || '',
-          remarks: cells[12] || '',
-          week1Count: Number(cells[13]) || 0,
-          week2Count: Number(cells[14]) || 0,
-          week3Count: Number(cells[15]) || 0,
-          week4Count: Number(cells[16]) || 0,
-          reward: Number(String(cells[17] || '').replace(/[^0-9]/g, '')) || 0
+          email: cells[emailIdx] || '',
+          preSurveyForm: isTrue(cells[pre1Idx]),
+          preSurveyCog: isTrue(cells[pre2Idx]),
+          postSurvey1: isTrue(cells[post1Idx]),
+          postSurvey2: isTrue(cells[post2Idx]),
+          endDate: cells[endIdx] || '',
+          listGroup: cells[listIdx] || '',
+          remarks: cells[remarksIdx] || '',
+          week1Count: Number(cells[w1Idx]) || 0,
+          week2Count: Number(cells[w2Idx]) || 0,
+          week3Count: Number(cells[w3Idx]) || 0,
+          week4Count: Number(cells[w4Idx]) || 0,
+          reward: Number(String(cells[rewardIdx] || '').replace(/[^0-9]/g, '')) || 0
         });
       }
     }
