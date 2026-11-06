@@ -159,7 +159,7 @@
             </div>
             <p id="userDetails" class="text-xs text-slate-500 mt-1">만 00세 • 여성 • 시작일 0000.00.00</p>
           </div>
-          <div class="text-right">
+          <div id="rewardBox" class="hidden text-right">
             <span class="text-[11px] font-medium text-slate-400 block">리워드(참가비)</span>
             <span id="userReward" class="text-base font-extrabold text-indigo-600">0원</span>
           </div>
@@ -210,7 +210,7 @@
           <!-- Post-survey 1 -->
           <div id="post1Card" class="p-3 rounded-2xl border transition-all">
             <div class="text-[11px] text-slate-400 mb-1">사후 설문</div>
-            <div class="text-xs font-bold text-slate-800">1차 사후 설문</div>
+            <div id="post1Title" class="text-xs font-bold text-slate-800">1차 사후 설문</div>
             <div id="post1Status" class="mt-2 inline-flex items-center text-xs font-semibold">
               <!-- Dynamically populated -->
             </div>
@@ -219,7 +219,7 @@
           <!-- Post-survey 2 -->
           <div id="post2Card" class="p-3 rounded-2xl border transition-all">
             <div class="text-[11px] text-slate-400 mb-1">사후 설문</div>
-            <div class="text-xs font-bold text-slate-800">2차 사후 설문</div>
+            <div id="post2Title" class="text-xs font-bold text-slate-800">2차 사후 설문</div>
             <div id="post2Status" class="mt-2 inline-flex items-center text-xs font-semibold">
               <!-- Dynamically populated -->
             </div>
@@ -346,6 +346,13 @@
     const SHEET_ID = '1iIidimS0u8QY8eop5bYyB_IPqsPRSR0cy6GB0HrHdwk';
     const GID_MAIN = '0';          // 종합 현황
     const GID_WEEK1 = '944633780';  // 1주차 일별 사용 현황
+
+    // ⚙️ 표시 설정: 참가비를 다시 보여주려면 true 로 변경
+    const SHOW_REWARD = false;
+
+    // 사후 설문 일정 (시작일 기준 +N일): 1차 = 시작일+13일(2주차 마지막 날), 2차 = 시작일+34일(5주차 마지막 날)
+    const POST1_OFFSET_DAYS = 13;
+    const POST2_OFFSET_DAYS = 34;
 
     let participantsData = [];
     let dailyAttendanceMap = {}; // phoneClean -> { '11/2': true, '11/3': false, ... }
@@ -686,6 +693,16 @@
       document.getElementById('duplicateModal').classList.add('hidden');
     }
 
+    // 시작일(YYYY.MM.DD) 기준으로 N일 뒤 날짜를 'M/D' 로 반환 (시작일이 없거나 형식이 이상하면 '')
+    function formatOffsetDate(startStr, offsetDays) {
+      if (!startStr) return '';
+      const parts = String(startStr).split('.').map(n => parseInt(n, 10));
+      if (parts.length < 3 || parts.some(isNaN)) return '';
+      const d = new Date(parts[0], parts[1] - 1, parts[2]);
+      d.setDate(d.getDate() + offsetDays);
+      return `${d.getMonth() + 1}/${d.getDate()}`;
+    }
+
     // Helper: Calculate Date Ranges for 5 Weeks (2 weeks -> 1 week rest -> 2 weeks)
     function calculateDates(startStr) {
       if (!startStr) {
@@ -762,6 +779,8 @@
       document.getElementById('userDetails').textContent = `${ageStr} • ${genderStr} • ${startText}`;
       
       document.getElementById('userReward').textContent = p.reward ? `${p.reward.toLocaleString()}원` : '0원';
+      // 참가비 표시 여부 (SHOW_REWARD 를 true 로 바꾸면 다시 표시됨)
+      document.getElementById('rewardBox').classList.toggle('hidden', !SHOW_REWARD);
 
       // 2. Pre-surveys status (Always shown)
       renderSurveyBadge('pre1Card', 'pre1Status', p.preSurveyForm);
@@ -770,6 +789,10 @@
       // Post-surveys status (Always shown)
       renderSurveyBadge('post1Card', 'post1Status', p.postSurvey1);
       renderSurveyBadge('post2Card', 'post2Status', p.postSurvey2);
+      const post1Date = formatOffsetDate(p.startDate, POST1_OFFSET_DAYS);
+      const post2Date = formatOffsetDate(p.startDate, POST2_OFFSET_DAYS);
+      document.getElementById('post1Title').textContent = post1Date ? `1차 사후 설문 (${post1Date})` : '1차 사후 설문';
+      document.getElementById('post2Title').textContent = post2Date ? `2차 사후 설문 (${post2Date})` : '2차 사후 설문';
 
       // 3. Calculate 4-week date ranges based on participant's startDate
       const dates = calculateDates(p.startDate);
