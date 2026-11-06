@@ -350,10 +350,17 @@
   </footer>
 
   <script>
-    // Google Sheets ID & Sheet GIDs
+    // ========================================================
+    // 🔒 보안 강화: Google Apps Script Web App URL
+    // 구글 시트에서 배포 후 발급받은 URL을 아래 따옴표 안에 넣어주시면
+    // 전체 시트 다운로드 없이 100% 비공개 보안 모드로 작동합니다.
+    // ========================================================
+    const GAS_API_URL = ''; // 예: 'https://script.google.com/macros/s/.../exec'
+
+    // Google Sheets ID & Sheet GIDs (보안 API 설정 전 로컬 테스트용)
     const SHEET_ID = '1iIidimS0u8QY8eop5bYyB_IPqsPRSR0cy6GB0HrHdwk';
     const GID_MAIN = '0';          // 종합 현황
-    const GID_WEEK1 = '944633780';  // 1주차 일별 사용 현황 (2주차는 추후 확정 시 연동)
+    const GID_WEEK1 = '944633780';  // 1주차 일별 사용 현황
 
     let participantsData = [];
     let dailyAttendanceMap = {}; // phoneClean -> { '11/2': true, '11/3': false, ... }
@@ -361,6 +368,7 @@
 
     // Fetch data: Parallel fetch for Main sheet and Week 1 daily attendance sheet
     async function fetchSheetData() {
+      if (GAS_API_URL) return; // 보안 API 사용 시 전체 시트 다운로드 생략
       showLoading(true);
       try {
         const cacheBuster = `&_=${Date.now()}`;
@@ -614,8 +622,8 @@
       });
     }
 
-    // Search by Phone Tail
-    function handleSearch(e) {
+    // Search by Phone Tail (Supports both Secure GAS API and Direct Sheet mode)
+    async function handleSearch(e) {
       if (e) e.preventDefault();
       const input = document.getElementById('phoneInput').value.trim();
       if (!input || input.length !== 4) {
@@ -623,6 +631,31 @@
         return;
       }
 
+      // Mode 1: Secure Google Apps Script Backend (100% Private, Zero Leak)
+      if (GAS_API_URL && GAS_API_URL.startsWith('https://')) {
+        showLoading(true);
+        try {
+          const resp = await fetch(`${GAS_API_URL}?tail=${encodeURIComponent(input)}`);
+          const res = await resp.json();
+          if (!res.success || !res.data || res.data.length === 0) {
+            alert(res.message || '입력하신 번호로 등록된 참가자를 찾을 수 없습니다.');
+            return;
+          }
+          if (res.data.length === 1) {
+            renderParticipant(res.data[0]);
+          } else {
+            showDuplicateModal(res.data);
+          }
+        } catch (err) {
+          console.error('API Error:', err);
+          alert('서버 조회 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.');
+        } finally {
+          showLoading(false);
+        }
+        return;
+      }
+
+      // Mode 2: Direct Google Sheet Mode (Fallback)
       const matches = participantsData.filter(p => p.phoneTail === input);
       if (matches.length === 0) {
         alert('입력하신 번호(' + input + ')로 등록된 참가자를 찾을 수 없습니다.\n전화번호를 다시 확인해 주세요.');
@@ -866,7 +899,7 @@
     // Render Week Usage Card with Accurate Daily Badges (Checked | Crossed | Scheduled)
     function renderWeekCard(elementId, weekNum, title, dateRange, participant, fallbackCount) {
       const card = document.getElementById(elementId);
-      const userRecords = dailyAttendanceMap[participant.phoneClean] || {};
+      const userRecords = participant.dailyRecords || (participant.phoneClean ? dailyAttendanceMap[participant.phoneClean] : {}) || {};
       
       let badgesHtml = '';
       let doneCount = 0;
