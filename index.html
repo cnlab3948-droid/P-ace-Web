@@ -932,8 +932,9 @@
           }
         } else {
           // No explicit record for this date
-          if (!hasAnyRecordInSheet && fallbackCount > 0 && day.dayIndex <= fallbackCount) {
-            // Use fallback count when the sheet has no rows for this participant (e.g., weeks 3 & 4)
+          // Use fallback only for weeks 3 & 4 (no sheet data)
+          if (!hasAnyRecordInSheet && fallbackCount > 0 && weekNum > 2 && day.dayIndex <= fallbackCount) {
+            // Fallback count indicates attended days when no data
             doneCount++;
             badgeStyle = 'bg-indigo-600 text-white font-bold shadow-sm shadow-indigo-100';
             badgeContent = '✓';
