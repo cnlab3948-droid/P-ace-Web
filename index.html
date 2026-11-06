@@ -180,8 +180,8 @@
       <!-- 2. Survey Status Card (사전 및 사후 설문) -->
       <div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100 space-y-3">
         <div class="flex items-center justify-between">
-          <h3 class="text-sm font-bold text-slate-900">사전 설문 및 검사 현황</h3>
-          <span class="text-[11px] font-medium text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">시작 전 필수</span>
+          <h3 class="text-sm font-bold text-slate-900">설문 및 검사 현황</h3>
+          <span class="text-[11px] font-medium text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">사전 2 · 사후 2</span>
         </div>
         
         <!-- Pre-surveys (Always visible, 2 columns) -->
@@ -205,38 +205,23 @@
           </div>
         </div>
 
-        <!-- Post-surveys Container (Only shown when 1st phase or final phase is completed) -->
-        <div id="postSurveySection" class="hidden space-y-2 pt-2 border-t border-slate-100">
-          <div class="text-[11px] font-bold text-slate-700 flex items-center justify-between">
-            <span>진행 단계별 사후 설문</span>
-            <span class="text-[10px] text-slate-400 font-normal">단계 완료 시 오픈</span>
+        <!-- Post-surveys (Always visible, 2 columns) -->
+        <div class="grid grid-cols-2 gap-2.5">
+          <!-- Post-survey 1 -->
+          <div id="post1Card" class="p-3 rounded-2xl border transition-all">
+            <div class="text-[11px] text-slate-400 mb-1">사후 설문</div>
+            <div class="text-xs font-bold text-slate-800">1차 사후 설문</div>
+            <div id="post1Status" class="mt-2 inline-flex items-center text-xs font-semibold">
+              <!-- Dynamically populated -->
+            </div>
           </div>
 
-          <div class="grid grid-cols-1 gap-2">
-            <!-- Post-survey 1 (Shown only after 1st phase ends) -->
-            <div id="post1Card" class="hidden p-3.5 rounded-2xl border transition-all">
-              <div class="flex items-center justify-between">
-                <div>
-                  <div class="text-[11px] text-slate-400 mb-0.5">1차 사후 설문</div>
-                  <div class="text-xs font-bold text-slate-800">1차(2주) 사용 완료 후 설문</div>
-                </div>
-                <div id="post1Status" class="inline-flex items-center text-xs font-semibold">
-                  <!-- Dynamically populated -->
-                </div>
-              </div>
-            </div>
-
-            <!-- Post-survey 2 (Shown only after final phase ends) -->
-            <div id="post2Card" class="hidden p-3.5 rounded-2xl border transition-all">
-              <div class="flex items-center justify-between">
-                <div>
-                  <div class="text-[11px] text-slate-400 mb-0.5">2차 사후 설문</div>
-                  <div class="text-xs font-bold text-slate-800">최종 사용 완료 후 설문</div>
-                </div>
-                <div id="post2Status" class="inline-flex items-center text-xs font-semibold">
-                  <!-- Dynamically populated -->
-                </div>
-              </div>
+          <!-- Post-survey 2 -->
+          <div id="post2Card" class="p-3 rounded-2xl border transition-all">
+            <div class="text-[11px] text-slate-400 mb-1">사후 설문</div>
+            <div class="text-xs font-bold text-slate-800">2차 사후 설문</div>
+            <div id="post2Status" class="mt-2 inline-flex items-center text-xs font-semibold">
+              <!-- Dynamically populated -->
             </div>
           </div>
         </div>
@@ -537,9 +522,9 @@
 
         for (const [colIdx, dateStr] of Object.entries(dateCols)) {
           const val = (row[colIdx] || '').trim().toUpperCase();
-          if (val === 'TRUE') {
+          if (val === 'TRUE' || val === 'O' || val === '1') {
             dailyAttendanceMap[phoneClean][dateStr] = true;
-          } else if (val === 'FALSE') {
+          } else if (val === 'FALSE' || val === 'X' || val === '0') {
             dailyAttendanceMap[phoneClean][dateStr] = false;
           }
         }
@@ -701,32 +686,6 @@
       document.getElementById('duplicateModal').classList.add('hidden');
     }
 
-    // Check Eligibility for Post-Surveys based on participant timeline
-    function checkSurveyEligibility(p) {
-      if (!p.startDate) {
-        return { showPost1: p.postSurvey1, showPost2: p.postSurvey2, diffDays: 0 };
-      }
-
-      const parts = p.startDate.split('.').map(n => parseInt(n, 10));
-      if (parts.length < 3) {
-        return { showPost1: p.postSurvey1, showPost2: p.postSurvey2, diffDays: 0 };
-      }
-
-      const start = new Date(parts[0], parts[1] - 1, parts[2]);
-      const now = new Date();
-      const startMidnight = new Date(start.getFullYear(), start.getMonth(), start.getDate());
-      const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const diffDays = Math.floor((todayMidnight - startMidnight) / (1000 * 60 * 60 * 24));
-
-      // 1차 사용(14일간: 1주+2주)이 끝났을 때: 시작일로부터 14일 이상 경과했거나, 이미 1차 설문을 완료한 경우
-      const showPost1 = diffDays >= 14 || p.postSurvey1;
-
-      // 최종 사용(총 35일: 2주 사용 + 1주 휴식 + 2주 사용)이 끝났을 때: 시작일로부터 35일 이상 경과했거나, 이미 2차 설문을 완료한 경우
-      const showPost2 = diffDays >= 35 || p.postSurvey2;
-
-      return { showPost1, showPost2, diffDays };
-    }
-
     // Helper: Calculate Date Ranges for 5 Weeks (2 weeks -> 1 week rest -> 2 weeks)
     function calculateDates(startStr) {
       if (!startStr) {
@@ -808,31 +767,9 @@
       renderSurveyBadge('pre1Card', 'pre1Status', p.preSurveyForm);
       renderSurveyBadge('pre2Card', 'pre2Status', p.preSurveyCog);
 
-      // Post-surveys status (Conditional: only shown when 1st phase or final phase ends)
-      const eligibility = checkSurveyEligibility(p);
-      const postSection = document.getElementById('postSurveySection');
-      const post1Card = document.getElementById('post1Card');
-      const post2Card = document.getElementById('post2Card');
-
-      if (eligibility.showPost1 || eligibility.showPost2) {
-        postSection.classList.remove('hidden');
-
-        if (eligibility.showPost1) {
-          post1Card.classList.remove('hidden');
-          renderSurveyBadge('post1Card', 'post1Status', p.postSurvey1);
-        } else {
-          post1Card.classList.add('hidden');
-        }
-
-        if (eligibility.showPost2) {
-          post2Card.classList.remove('hidden');
-          renderSurveyBadge('post2Card', 'post2Status', p.postSurvey2);
-        } else {
-          post2Card.classList.add('hidden');
-        }
-      } else {
-        postSection.classList.add('hidden');
-      }
+      // Post-surveys status (Always shown)
+      renderSurveyBadge('post1Card', 'post1Status', p.postSurvey1);
+      renderSurveyBadge('post2Card', 'post2Status', p.postSurvey2);
 
       // 3. Calculate 4-week date ranges based on participant's startDate
       const dates = calculateDates(p.startDate);
@@ -900,6 +837,7 @@
     function renderWeekCard(elementId, weekNum, title, dateRange, participant, fallbackCount) {
       const card = document.getElementById(elementId);
       const userRecords = participant.dailyRecords || (participant.phoneClean ? dailyAttendanceMap[participant.phoneClean] : {}) || {};
+      console.log(`[renderWeekCard] Week ${weekNum}, fallbackCount=${fallbackCount}, userRecords=`, JSON.stringify(userRecords), 'phoneClean=', participant.phoneClean, 'hasDailyRecords=', !!participant.dailyRecords);
       
       let badgesHtml = '';
       let doneCount = 0;
